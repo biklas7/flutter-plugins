@@ -655,12 +655,6 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
             switch samplesOrNil {
             case let (samples as [HKQuantitySample]) as Any:
                 let dictionaries = samples.map { sample -> NSDictionary in
-                    var insulinDeliveryReason: Int? = nil
-                    if let metadata = sample.metadata,
-                       let deliveryReason = metadata[HKMetadataKeyInsulinDeliveryReason] as? NSNumber {
-                        insulinDeliveryReason = deliveryReason.intValue
-                    }
-
                     return [
                         "uuid": "\(sample.uuid)",
                         "value": sample.quantity.doubleValue(for: unit ?? HKUnit.internationalUnit()),
@@ -669,7 +663,7 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
                         "source_id": sample.sourceRevision.source.bundleIdentifier,
                         "source_name": sample.sourceRevision.source.name,
                         "is_manual_entry": sample.metadata?[HKMetadataKeyWasUserEntered] != nil,
-                        "insulin_delivery_reason": insulinDeliveryReason ?? NSNull()
+                        "metadata": sanitizeMetadata(sample.metadata)
                     ]
                 }
                 DispatchQueue.main.async {
@@ -850,6 +844,54 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
         }
 
         HKHealthStore().execute(query)
+    }
+
+    private func sanitizeMetadata(_ metadata: [String: Any]?) -> [String: Any] {
+        guard let metadata = metadata else { return [:] }
+        
+        var sanitized = [String: Any]()
+        
+        for (key, value) in metadata {
+            switch value {
+            case let stringValue as String:
+                sanitized[key] = stringValue
+            case let numberValue as NSNumber:
+                sanitized[key] = numberValue
+            case let boolValue as Bool:
+                sanitized[key] = boolValue
+            case let arrayValue as [Any]:
+                sanitized[key] = sanitizeArray(arrayValue)
+            case let mapValue as [String: Any]:
+                sanitized[key] = sanitizeMetadata(mapValue)
+            default:
+                continue
+            }
+        }
+        
+        return sanitized
+    }
+
+    private func sanitizeArray(_ array: [Any]) -> [Any] {
+        var sanitizedArray: [Any] = []
+        
+        for value in array {
+            switch value {
+            case let stringValue as String:
+                sanitizedArray.append(stringValue)
+            case let numberValue as NSNumber:
+                sanitizedArray.append(numberValue)
+            case let boolValue as Bool:
+                sanitizedArray.append(boolValue)
+            case let arrayValue as [Any]:
+                sanitizedArray.append(sanitizeArray(arrayValue))
+            case let mapValue as [String: Any]:
+                sanitizedArray.append(sanitizeMetadata(mapValue))
+            default:
+                continue
+            }
+        }
+        
+        return sanitizedArray
     }
 
     @available(iOS 14.0, *)
