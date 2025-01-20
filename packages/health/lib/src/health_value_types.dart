@@ -338,14 +338,12 @@ class InsulinDeliveryHealthValue extends HealthValue {
   factory InsulinDeliveryHealthValue.fromHealthDataPoint(dynamic dataPoint) {
     final units = dataPoint['value'] as num;
 
-    final metadata = dataPoint['metadata'] == null
-        ? null
-        : Map<String, dynamic>.from(dataPoint['metadata'] as Map);
-    final reasonIndex =
-        metadata == null || !metadata.containsKey('HKInsulinDeliveryReason')
-            ? 0
-            : metadata['HKInsulinDeliveryReason'] as double;
-    final reason = InsulinDeliveryReason.values[reasonIndex.toInt()];
+    final reasonIndex = dataPoint['insulin_delivery_reason'] as num?;
+    final reason = reasonIndex != null &&
+            reasonIndex >= 0 &&
+            reasonIndex < InsulinDeliveryReason.values.length
+        ? InsulinDeliveryReason.values[reasonIndex.toInt()]
+        : InsulinDeliveryReason.NOT_SET;
 
     return InsulinDeliveryHealthValue(units: units.toDouble(), reason: reason);
   }

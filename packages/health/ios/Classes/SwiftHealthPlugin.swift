@@ -655,6 +655,12 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
             switch samplesOrNil {
             case let (samples as [HKQuantitySample]) as Any:
                 let dictionaries = samples.map { sample -> NSDictionary in
+                    var insulinDeliveryReason: Int? = nil
+                    if let metadata = sample.metadata,
+                       let deliveryReason = metadata[HKMetadataKeyInsulinDeliveryReason] as? NSNumber {
+                        insulinDeliveryReason = deliveryReason.intValue
+                    }
+
                     return [
                         "uuid": "\(sample.uuid)",
                         "value": sample.quantity.doubleValue(for: unit ?? HKUnit.internationalUnit()),
@@ -663,7 +669,7 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
                         "source_id": sample.sourceRevision.source.bundleIdentifier,
                         "source_name": sample.sourceRevision.source.name,
                         "is_manual_entry": sample.metadata?[HKMetadataKeyWasUserEntered] != nil,
-                        "metadata": dataTypeKey == INSULIN_DELIVERY ? sample.metadata : nil
+                        "insulin_delivery_reason": insulinDeliveryReason ?? NSNull()
                     ]
                 }
                 DispatchQueue.main.async {
